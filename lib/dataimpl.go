@@ -62,6 +62,7 @@ func add(root *radixNode, str string, optdata ...interface{}) *radixNode {
 
 	matchExactly := lenPrefix == len(root.part) && lenPrefix == len(str)
 	if matchExactly {
+		root.data = data
 		root.final = true
 		return root
 	}
@@ -111,37 +112,36 @@ func add(root *radixNode, str string, optdata ...interface{}) *radixNode {
 	return newRoot
 }
 
-func remove(root *radixNode, str string) *radixNode {
+func remove(root *radixNode, str string) (*radixNode, bool) {
 	if root == nil {
-		return nil
+		return nil, false
 	}
 
 	lenPrefix := commonPrefixLength(root.part, str)
 
 	matchExactly := lenPrefix == len(root.part) && lenPrefix == len(str)
 	if matchExactly {
-		if !root.final {
-			return root
+		wordIsInTree := root.final
+		if !wordIsInTree {
+			return root, false
 		}
 
-		rootIsWord := true
-
-		hasNoChildren := len(root.children) == 0
-		if rootIsWord && hasNoChildren {
-			return nil
+		shouldRemoveRoot := len(root.children) == 0
+		if shouldRemoveRoot {
+			return nil, true
 		}
 
-		hasOneChild := len(root.children) == 1
-		if rootIsWord && hasOneChild {
+		shouldMergeRootWithChild := len(root.children) == 1
+		if shouldMergeRootWithChild {
 			mergeWithSingleChild(root)
-			return root
+			return root, true
 		}
 
 		// if we got here, root has children, so we can just unset the final flag
 
 		root.final = false
 		root.data = nil
-		return root
+		return root, true
 	}
 
 	rootIsPrefixOfString := lenPrefix == len(root.part)
@@ -150,19 +150,23 @@ func remove(root *radixNode, str string) *radixNode {
 
 		childCandidate, exists := root.children[endStr[0]]
 		if !exists {
-			return root
+			return root, false
 		}
 
-		shouldRemoveChild := remove(childCandidate, endStr) == nil
+		child, removed := remove(childCandidate, endStr)
+
+		shouldRemoveChild := child == nil
 		if shouldRemoveChild {
 			root.removeChild(childCandidate)
 			if !root.final && len(root.children) == 1 {
 				mergeWithSingleChild(root)
 			}
 		}
+
+		return root, removed
 	}
 
-	return root
+	return root, false
 }
 
 func mergeWithSingleChild(node *radixNode) {
@@ -204,7 +208,13 @@ func get(root *radixNode, str string) *radixNode {
 	return nil
 }
 
-func getWithPrefix(root *radixNode, pattern string) *radixNode {
+func getWithPrefix(root *radixNode, pattern string) (*radixNode, *bytes.Buffer) {
+	buffer := &bytes.Buffer{}
+	node := getWithPrefixRecursive(root, pattern, buffer)
+	return node, buffer
+}
+
+func getWithPrefixRecursive(root *radixNode, pattern string, buffer *bytes.Buffer) *radixNode {
 	if root == nil {
 		return nil
 	}
@@ -225,18 +235,19 @@ func getWithPrefix(root *radixNode, pattern string) *radixNode {
 			return nil
 		}
 
-		return getWithPrefix(childCandidate, endPattern)
+		buffer.WriteString(root.part)
+		return getWithPrefixRecursive(childCandidate, endPattern, buffer)
 	}
 
 	return nil
 }
 
-func traverse(root *radixNode, action func(string, ...interface{})) {
+func traverse(root *radixNode, action func(string, interface{})) {
 	buffer := &bytes.Buffer{}
 	traverseRecursive(root, buffer, action)
 }
 
-func traverseRecursive(root *radixNode, buffer *bytes.Buffer, action func(string, ...interface{})) {
+func traverseRecursive(root *radixNode, buffer *bytes.Buffer, action func(string, interface{})) {
 	if root == nil {
 		return
 	}
@@ -245,11 +256,7 @@ func traverseRecursive(root *radixNode, buffer *bytes.Buffer, action func(string
 
 	_, _ = buffer.WriteString(root.part)
 	if root.final {
-		if root.data != nil {
-			action(buffer.String(), root.data)
-		} else {
-			action(buffer.String())
-		}
+		action(buffer.String(), root.data)
 	}
 
 	for _, child := range root.children {

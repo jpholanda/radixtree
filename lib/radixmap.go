@@ -11,19 +11,19 @@ func (m *Map) Add(str string, data interface{}) {
 }
 
 func (m *Map) Remove(str string) {
-	m.root = remove(m.root, str)
-	m.size--
-	if m.size < 0 {
-		m.size = 0
+	var removed bool
+	m.root, removed = remove(m.root, str)
+	if removed {
+		m.size--
 	}
 }
 
-func (m *Map) Get(str string) interface{} {
+func (m *Map) Get(str string) (interface{}, bool) {
 	node := get(m.root, str)
-	if node == nil {
-		return nil
+	if node == nil || !node.final {
+		return nil, false
 	}
-	return node.data
+	return node.data, true
 }
 
 func (m *Map) Size() int64 {
@@ -31,22 +31,10 @@ func (m *Map) Size() int64 {
 }
 
 func (m *Map) ForEach(action func(string, interface{})) {
-	traverse(s.root, func(s string, optdata ...interface{}) {
-		if len(optdata) > 0 {
-			action(s, optdata[0])
-		} else {
-			action(s, nil)
-		}
-	})
+	traverse(m.root, action)
 }
 
 func (m *Map) ForEachWithPrefix(prefix string, action func(string, interface{})) {
-	node := getWithPrefix(m.root, prefix)
-	traverse(node, func(s string, optdata ...interface{}) {
-		if len(optdata) > 0 {
-			action(s, optdata[0])
-		} else {
-			action(s, nil)
-		}
-	})
+	node, buffer := getWithPrefix(m.root, prefix)
+	traverseRecursive(node, buffer, action)
 }

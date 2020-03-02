@@ -11,16 +11,16 @@ func (s *Set) Add(str string) {
 }
 
 func (s *Set) Remove(str string) {
-	s.root = remove(s.root, str)
-	s.size--
-	if s.size < 0 {
-		s.size = 0
+	var removed bool
+	s.root, removed = remove(s.root, str)
+	if removed {
+		s.size--
 	}
 }
 
 func (s *Set) Contains(str string) bool {
 	node := get(s.root, str)
-	return node != nil
+	return node != nil && node.final
 }
 
 func (s *Set) Size() int64 {
@@ -28,14 +28,14 @@ func (s *Set) Size() int64 {
 }
 
 func (s *Set) ForEach(action func(string)) {
-	traverse(s.root, func(s string, _ ...interface{}) {
+	traverse(s.root, func(s string, _ interface{}) {
 		action(s)
 	})
 }
 
 func (s *Set) ForEachWithPrefix(prefix string, action func(string)) {
-	node := getWithPrefix(s.root, prefix)
-	traverse(node, func(s string, _ ...interface{}) {
+	node, buffer := getWithPrefix(s.root, prefix)
+	traverseRecursive(node, buffer, func(s string, _ interface{}) {
 		action(s)
 	})
 }
