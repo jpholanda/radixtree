@@ -3,7 +3,7 @@ package radixtree_test
 import (
 	"testing"
 
-	radixtree "github.com/jpholanda/radixtree/lib"
+	"github.com/jpholanda/radixtree"
 	"github.com/stretchr/testify/assert"
 )
 
